@@ -1637,6 +1637,17 @@ void MainWindow::onLiveFileChanged(const QString& path)
         return;
     }
 
+    // Debounce: many editors and Qt's inotify wrapper fire multiple events
+    // for a single logical write (truncate + write, atomic rename, etc.).
+    // Skip if content is byte-identical to what we already loaded.
+    if (content == m_liveLastContent) {
+        if (m_liveWatcher && !m_liveWatcher->files().contains(m_liveWatchPath)) {
+            m_liveWatcher->addPath(m_liveWatchPath);
+        }
+        return;
+    }
+    m_liveLastContent = content;
+
     std::cout << "[GUI] - live reload: " << path.toStdString() << std::endl;
     replaceBufferIdx(0, content, 0, 0, 0);
     runBufferIdx(0);

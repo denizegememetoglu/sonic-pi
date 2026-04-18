@@ -423,6 +423,7 @@ private:
     SonicPiScintilla* workspaces[workspace_max];
     QFileSystemWatcher* m_liveWatcher = nullptr;
     QString m_liveWatchPath;
+    QString m_liveLastContent;
     QTabWidget* docsNavTabs;
     QTabWidget* southTabs;
 
