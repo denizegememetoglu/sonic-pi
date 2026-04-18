@@ -72,7 +72,8 @@ add_library(SonicPi::API ALIAS ${PROJECT_NAME})
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # Look for Boost version 1.74 or higher. Add any components you need.
-    find_package(Boost 1.74 REQUIRED COMPONENTS filesystem system thread)
+    # boost::system is header-only as of Boost 1.87+, so not a component.
+    find_package(Boost 1.74 REQUIRED COMPONENTS filesystem thread)
 
     if(Boost_FOUND)
         message(STATUS "Found Boost version ${Boost_VERSION}")
