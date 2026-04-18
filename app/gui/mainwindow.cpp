@@ -23,8 +23,12 @@
 #include <QBoxLayout>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QDockWidget>
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -260,6 +264,23 @@ MainWindow::MainWindow(QApplication& app, QSplashScreen* splash)
         updateColourTheme();
         std::cout << "[GUI] - load workspaces" << std::endl;
         loadWorkspaces();
+
+        // Live-coding file watcher: auto-reload + auto-run buffer 0
+        // when ~/.sonic-pi/store/default/workspace_zero.spi changes externally.
+        m_liveWatchPath = QDir::homePath() + "/.sonic-pi/store/default/workspace_zero.spi";
+        {
+            QFile f(m_liveWatchPath);
+            if (!f.exists()) {
+                QDir().mkpath(QFileInfo(m_liveWatchPath).absolutePath());
+                if (f.open(QIODevice::WriteOnly)) f.close();
+            }
+        }
+        m_liveWatcher = new QFileSystemWatcher(this);
+        m_liveWatcher->addPath(m_liveWatchPath);
+        connect(m_liveWatcher, &QFileSystemWatcher::fileChanged,
+                this, &MainWindow::onLiveFileChanged);
+        std::cout << "[GUI] - live watcher armed on " << m_liveWatchPath.toStdString() << std::endl;
+
         std::cout << "[GUI] - load request Version" << std::endl;
         requestVersion();
         changeSystemPreAmp(piSettings->main_volume, 1);
@@ -1594,6 +1615,36 @@ void MainWindow::replaceBufferIdx(int buf_idx, QString content, int line, int in
     //  statusBar()->showMessage(tr("Replacing Buffer..."), 1000);
     SonicPiScintilla* ws = workspaces[buf_idx];
     ws->replaceBuffer(content, line, index, first_line);
+}
+
+void MainWindow::onLiveFileChanged(const QString& path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // File may be mid-rename (editors use atomic write). Re-arm and bail.
+        if (m_liveWatcher && !m_liveWatcher->files().contains(m_liveWatchPath)) {
+            m_liveWatcher->addPath(m_liveWatchPath);
+        }
+        return;
+    }
+    QString content = QString::fromUtf8(f.readAll());
+    f.close();
+
+    if (content.trimmed().isEmpty()) {
+        if (m_liveWatcher && !m_liveWatcher->files().contains(m_liveWatchPath)) {
+            m_liveWatcher->addPath(m_liveWatchPath);
+        }
+        return;
+    }
+
+    std::cout << "[GUI] - live reload: " << path.toStdString() << std::endl;
+    replaceBufferIdx(0, content, 0, 0, 0);
+    runBufferIdx(0);
+
+    // Re-arm: some editors trigger path removal via atomic rename.
+    if (m_liveWatcher && !m_liveWatcher->files().contains(m_liveWatchPath)) {
+        m_liveWatcher->addPath(m_liveWatchPath);
+    }
 }
 
 void MainWindow::replaceLines(QString id, QString content, int start_line, int finish_line, int point_line, int point_index)

@@ -45,6 +45,7 @@ class QTextBrowser;
 class QString;
 class QSlider;
 class QSplitter;
+class QFileSystemWatcher;
 
 namespace SonicPi
 {
@@ -137,6 +138,7 @@ signals:
 private slots:
 
     void updateSelectedUILanguageAction(QString lang);
+    void onLiveFileChanged(const QString& path);
     void updateContext(int line, int index);
     void updateContextWithCurrentWs();
     void docLinkClicked(const QUrl& url);
@@ -419,6 +421,8 @@ private:
     bool i18n;
     static const int workspace_max = 10;
     SonicPiScintilla* workspaces[workspace_max];
+    QFileSystemWatcher* m_liveWatcher = nullptr;
+    QString m_liveWatchPath;
     QTabWidget* docsNavTabs;
     QTabWidget* southTabs;
 
